@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "projects": {
+    "child-app": "packages/child-app",
+    "child-app-e2e": "packages/child-app-e2e",
+    "parent-app": "packages/parent-app",
+    "parent-app-e2e": "packages/parent-app-e2e"
+  }
+}
