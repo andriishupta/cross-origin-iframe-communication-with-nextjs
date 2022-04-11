@@ -72,10 +72,10 @@ export default function Home() {
     });
   };
 
-  const sendToken = () =>
+  const sendToken = (onLoad = false) =>
     postMessage({
       type: 'token-from-parent',
-      value: token,
+      value: onLoad ? 'INITIAL_TOKEN' : token,
     });
 
   return (
@@ -131,7 +131,7 @@ export default function Home() {
                 _hover={{
                   bg: 'green.500',
                 }}
-                onClick={sendToken}
+                onClick={() => sendToken()}
               >
                 Send Token
               </Button>
@@ -140,7 +140,7 @@ export default function Home() {
           <iframe
             ref={iframeRef}
             src={CHILD_APP_URL}
-            onLoad={sendToken}
+            onLoad={() => sendToken(true)}
             style={{ background: 'white' }}
             width={'100%'}
             height={'450px'}
