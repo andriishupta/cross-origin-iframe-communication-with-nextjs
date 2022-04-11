@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 import {
   Box,
   Heading,
@@ -5,47 +7,75 @@ import {
   Text,
   Button,
   Stack,
-  HStack,
   useColorMode,
   Center,
+  Input,
+  Flex,
 } from '@chakra-ui/react';
-import { useRef, useState } from 'react';
+
+import { useToast } from '@chakra-ui/react';
 
 const CHILD_APP_URL = process.env.NEXT_PUBLIC_CHILD_APP_URL ?? 'http://localhost:4201';
 
 type Message = {
   type: string;
-  message: string;
+  value: string;
 };
 
 export default function Home() {
-  const [_logs, _setLogs] = useState<string[]>([]);
+  const toast = useToast();
+  const { colorMode, toggleColorMode } = useColorMode();
+  const isLightTheme = colorMode === 'light';
 
-  const [token, setToken] = useState<string[]>([]);
+  const [token, setToken] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const { colorMode, toggleColorMode } = useColorMode();
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== CHILD_APP_URL) {
+        // skip other messages from(for example.) extensions
+        return;
+      }
 
-  const _appendLog = (log: string) => _setLogs((currentLogs) => [...currentLogs, log]);
+      const message: Message = event.data;
+
+      if (message?.type === 'token-expired-from-child') {
+        toast({
+          title: 'Token expired from child',
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+          position: 'top'
+        });
+        setToken('')
+      } else if (message?.type === 'theme-from-child') {
+        toggleColorMode();
+      } else {
+        console.error('NOT_VALID_MESSAGE: ', JSON.stringify(message));
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [toggleColorMode, toast, setToken]);
 
   const postMessage = (message: Message) => {
     iframeRef.current.contentWindow.postMessage(message, CHILD_APP_URL); // OR use '*' to handle all origins
-    _appendLog(`sent message: ${JSON.stringify(message)}`);
   };
 
   const toggleTheme = () => {
-    const nextColorMode = colorMode === 'light' ? 'dark' : 'light';
+    const nextColorMode = isLightTheme ? 'dark' : 'light';
     toggleColorMode();
     postMessage({
-      type: 'theme',
-      message: nextColorMode,
+      type: 'theme-from-parent',
+      value: nextColorMode,
     });
   };
 
   const sendToken = () =>
     postMessage({
-      type: 'token',
-      message: 'test',
+      type: 'token-from-parent',
+      value: token,
     });
 
   return (
@@ -67,26 +97,37 @@ export default function Home() {
             </Text>
           </Heading>
           <Center>
-            <HStack>
+            <Button
+              colorScheme={'green'}
+              bg={'green.400'}
+              rounded={'full'}
+              px={6}
+              margin={0}
+              _hover={{
+                bg: 'green.500',
+              }}
+              onClick={toggleTheme}
+            >
+              Toggle Theme(both ways)
+            </Button>
+          </Center>
+          <Center>
+            <Flex alignItems={'center'} justifyContent={'center'}>
+              <Input
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="enter some value"
+                size="sm"
+                rounded={'full'}
+                colorScheme={'green'}
+                background={isLightTheme ? 'white' : 'rgba(0,0,0,0.75)'}
+              />
               <Button
-                style={{ marginTop: '12px' }}
                 colorScheme={'green'}
                 bg={'green.400'}
                 rounded={'full'}
                 px={6}
-                _hover={{
-                  bg: 'green.500',
-                }}
-                onClick={toggleTheme}
-              >
-                Toggle Theme
-              </Button>
-              <Button
-                style={{ marginTop: '12px' }}
-                colorScheme={'green'}
-                bg={'green.400'}
-                rounded={'full'}
-                px={6}
+                mx={3}
                 _hover={{
                   bg: 'green.500',
                 }}
@@ -94,14 +135,15 @@ export default function Home() {
               >
                 Send Token
               </Button>
-            </HStack>
+            </Flex>
           </Center>
           <iframe
             ref={iframeRef}
             src={CHILD_APP_URL}
             onLoad={sendToken}
+            style={{ background: 'white' }}
             width={'100%'}
-            height={'300px'}
+            height={'450px'}
           />
           )
         </Stack>
